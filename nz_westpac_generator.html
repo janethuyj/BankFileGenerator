@@ -603,7 +603,7 @@
 let transactions   = [];
 let generatedContent = '';
 let currentTxCode  = '52';
-let currentMode = 'DC';  // 'DC' or 'DD'
+let currentMode    = 'DC';  // 'DC' or 'DD'
 
 // ── PADDING HELPERS ────────────────────────────────────────────
 const padL     = (s, n) => String(s || '').substring(0, n).padEnd(n, ' ');
@@ -1049,9 +1049,16 @@ function setMode(mode, btn) {
   // Update transaction table column header
   document.getElementById('thPayer').textContent = isDd ? 'Creditor' : 'Payer';
 
-  // Lock tx code to 00 for DD
-  if (isDd) currentTxCode = '00';
-  else currentTxCode = '52'; // restore DC default
+  // Lock tx code to 00 for DD; restore DC sub-toggle state when switching back
+  if (isDd) {
+    currentTxCode = '00';
+  } else {
+    // Use setTxCode to restore state AND re-sync #txCodeTabs button highlighting.
+    // Pass null as btn since there's no button click to highlight here;
+    // setTxCode calls refreshPreview() but we call it again below — acceptable
+    // because refreshPreview() is cheap (just clears generated state).
+    setTxCode('52', null);
+  }
 
   refreshPreview();
 }
