@@ -603,6 +603,7 @@
 let transactions   = [];
 let generatedContent = '';
 let currentTxCode  = '52';
+let currentMode = 'DC';  // 'DC' or 'DD'
 
 // ── PADDING HELPERS ────────────────────────────────────────────
 const padL     = (s, n) => String(s || '').substring(0, n).padEnd(n, ' ');
@@ -1024,6 +1025,36 @@ function setTxCode(code, btn) {
   refreshPreview();
 }
 
+function setMode(mode, btn) {
+  currentMode = mode;
+
+  // Update mode toggle active state
+  document.querySelectorAll('#modeTabs .tab-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  const isDd = mode === 'DD';
+
+  // Show/hide Payment Type sub-toggle row
+  document.getElementById('paymentTypeRow').style.display = isDd ? 'none' : '';
+
+  // Update header badge
+  document.getElementById('modeBadge').textContent = isDd ? 'DIRECT DEBITS' : 'DIRECT CREDITS';
+
+  // Update Step 2 card title
+  document.getElementById('step2Title').textContent = isDd ? 'Default Creditor Account' : 'Default Payer Account';
+
+  // Update Payer Name label
+  document.getElementById('payerNameLabel').textContent = isDd ? 'Creditor Name' : 'Payer Name';
+
+  // Update transaction table column header
+  document.getElementById('thPayer').textContent = isDd ? 'Creditor' : 'Payer';
+
+  // Lock tx code to 00 for DD
+  if (isDd) currentTxCode = '00';
+  else currentTxCode = '52'; // restore DC default
+
+  refreshPreview();
+}
 
 function showStatus(id, type, msg) {
   const el = document.getElementById(id);
