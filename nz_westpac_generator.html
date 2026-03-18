@@ -442,13 +442,13 @@
         </div>
 
         <div id="paymentTypeRow">
-        <div class="form-row">
-          <label>Payment Type</label>
-          <div class="tab-group" id="txCodeTabs">
-            <button class="tab-btn active" onclick="setTxCode('52', this)">Payroll (52)</button>
-            <button class="tab-btn" onclick="setTxCode('50', this)">General Payment (50)</button>
+          <div class="form-row">
+            <label>Payment Type</label>
+            <div class="tab-group" id="txCodeTabs">
+              <button class="tab-btn active" onclick="setTxCode('52', this)">Payroll (52)</button>
+              <button class="tab-btn" onclick="setTxCode('50', this)">General Payment (50)</button>
+            </div>
           </div>
-        </div>
         </div><!-- /paymentTypeRow -->
 
         <div class="form-row">
@@ -629,6 +629,8 @@ const padBlank = (n)    => ' '.repeat(n);
   const mm    = String(today.getMonth() + 1).padStart(2, '0');
   const dd    = String(today.getDate()).padStart(2, '0');
   document.getElementById('processingDate').value = `${yyyy}-${mm}-${dd}`;
+  // Initialise mode toggle state from a single source
+  setMode('DC');
 })();
 
 // ── RECORD BUILDERS ────────────────────────────────────────────
