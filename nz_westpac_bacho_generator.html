@@ -961,9 +961,9 @@ function buildDetailRecord(tx) {
     padR(branch, 4) +              // 4  originating branch
     padR(batchRaw, 4) +            // 4  batch number
     padL(tx.payee_name    || '', 20) + // 20
-    padL(tx.reference     || '', 12) + // 12
     padL(tx.particulars   || '', 12) + // 12
     padL(tx.analysis_code || '', 12) + // 12
+    padL(tx.reference     || '', 12) + // 12
     padL(opName, 20) +             // 20  Other Party name
     ' ' +                          // 1   reserved space
     padR(opBank, 2) +              // 2
@@ -1273,9 +1273,9 @@ function renderPreview(lines) {
         { name: 'Orig Branch',         value: line.substring(43, 47) },
         { name: 'Batch No',            value: line.substring(47, 51) },
         { name: 'This Party Name',     value: line.substring(51, 71) },
-        { name: 'Reference',           value: line.substring(71, 83) },
-        { name: 'Particulars',         value: line.substring(83, 95) },
-        { name: 'Analysis',            value: line.substring(95, 107) },
+        { name: 'Particulars',         value: line.substring(71, 83) },
+        { name: 'Analysis',            value: line.substring(83, 95) },
+        { name: 'Reference',           value: line.substring(95, 107) },
         { name: 'Other Party Name',    value: line.substring(107, 127) },
         { name: 'Reserved (1)',        value: line.substring(127, 128) },
         { name: 'Other Party Bank',    value: line.substring(128, 130) },
