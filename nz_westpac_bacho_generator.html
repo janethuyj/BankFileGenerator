@@ -1031,6 +1031,309 @@ function buildTrailerRecord(dCount, accounts, totalCredits, totalDebits) {
   return rec.substring(0, 160);
 }
 
+// ── VALIDATE ALL ───────────────────────────────────────────────
+function validateAll() {
+  const errors   = [];
+  const warnings = [];
+
+  const processingDate = document.getElementById('processingDate').value.trim();
+  const originBranch   = document.getElementById('originBranch').value.trim();
+  const deUserId       = document.getElementById('deUserId').value.trim();
+  const tradingName    = document.getElementById('tradingName').value.trim();
+  const yourBank       = document.getElementById('yourBank').value.trim();
+  const yourBranch     = document.getElementById('yourBranch').value.trim();
+  const yourAccount    = document.getElementById('yourAccount').value.trim();
+  const customerName   = document.getElementById('customerName').value.trim();
+
+  if (!processingDate) {
+    errors.push('Processing date is required.');
+  }
+
+  if (!originBranch) {
+    errors.push('Origin branch is required.');
+  } else if (!/^\d{1,4}$/.test(originBranch)) {
+    errors.push('Origin branch must be 1–4 digits.');
+  }
+
+  if (!deUserId) {
+    errors.push('DE User ID is required.');
+  }
+
+  if (!tradingName) {
+    errors.push('Trading name is required.');
+  }
+
+  if (!yourBank) {
+    errors.push('Your bank number is required.');
+  } else if (!/^\d+$/.test(yourBank)) {
+    errors.push('Your bank number must be numeric.');
+  }
+
+  if (!yourBranch) {
+    errors.push('Your branch number is required.');
+  } else if (!/^\d+$/.test(yourBranch)) {
+    errors.push('Your branch number must be numeric.');
+  }
+
+  if (!yourAccount) {
+    errors.push('Your account number is required.');
+  } else if (!/^\d+$/.test(yourAccount)) {
+    errors.push('Your account number must be numeric.');
+  }
+
+  if (!transactions.length) {
+    errors.push('At least one transaction is required.');
+  }
+
+  transactions.forEach((tx, i) => {
+    const rowNum = i + 1;
+    if (!tx.payee_name || !tx.payee_name.trim()) {
+      errors.push(`Row ${rowNum}: Payee name is required.`);
+    }
+    if (!tx.payee_bank || !/^\d+$/.test(tx.payee_bank.trim())) {
+      errors.push(`Row ${rowNum}: Payee bank must be numeric.`);
+    }
+    if (!tx.payee_branch || !/^\d+$/.test(tx.payee_branch.trim())) {
+      errors.push(`Row ${rowNum}: Payee branch must be numeric.`);
+    }
+    if (!tx.payee_account || !/^\d+$/.test(tx.payee_account.trim())) {
+      errors.push(`Row ${rowNum}: Payee account must be numeric.`);
+    }
+    const amt = parseFloat(tx.amount);
+    if (isNaN(amt) || amt <= 0) {
+      errors.push(`Row ${rowNum}: Amount must be a positive number.`);
+    }
+  });
+
+  if (!customerName) {
+    warnings.push('Warning: Customer name is empty (optional but recommended).');
+  }
+
+  return { errors, warnings };
+}
+
+// ── VALIDATE AND GENERATE ───────────────────────────────────────
+function validateAndGenerate() {
+  const alertEl = document.getElementById('validationAlert');
+
+  const { errors, warnings } = validateAll();
+
+  if (errors.length) {
+    const items = errors.map(e => `<li>${escHtml(e)}</li>`).join('');
+    alertEl.className = 'alert alert-error show';
+    alertEl.innerHTML = '<strong>Please fix the following errors:</strong><ul>' + items + '</ul>';
+    return;
+  }
+
+  // Show warnings if any (non-blocking)
+  if (warnings.length) {
+    const items = warnings.map(w => `<li>${escHtml(w)}</li>`).join('');
+    alertEl.className = 'alert alert-warn show';
+    alertEl.innerHTML = '<ul>' + items + '</ul>';
+  } else {
+    alertEl.className = 'alert';
+    alertEl.innerHTML = '';
+  }
+
+  // Build A record
+  const aRecord = buildHeaderRecord();
+
+  // Build D records for each transaction
+  const dRecords = transactions.map(tx => buildDetailRecord(tx));
+
+  // Compute total cents
+  const totalCents = transactions.reduce((sum, tx) => sum + Math.round(parseFloat(tx.amount) * 100), 0);
+
+  // Build balancing D record
+  const balancingRecord = buildBalancingRecord(totalCents);
+
+  // Collect all D record accounts (positions 8–15, 0-indexed) for hash total
+  const allDRecords = [...dRecords, balancingRecord];
+  const accounts = allDRecords.map(r => r.substring(8, 16));
+
+  // Determine total credits and debits (in cents)
+  let totalCredits, totalDebits;
+  if (currentMode === 'DC') {
+    totalCredits = totalCents;   // sum of transaction credits
+    totalDebits  = totalCents;   // balancing debit
+  } else {
+    totalDebits  = totalCents;   // sum of transaction debits
+    totalCredits = totalCents;   // balancing credit
+  }
+
+  const dCount = allDRecords.length;
+
+  // Build T record
+  const tRecord = buildTrailerRecord(dCount, accounts, totalCredits, totalDebits);
+
+  const allLines = [aRecord, ...dRecords, balancingRecord, tRecord];
+
+  // Store generated content
+  generatedContent = allLines.join('\r\n');
+
+  // Render preview
+  renderPreview(allLines);
+
+  // Show download button
+  const btnDownload = document.getElementById('btnDownload');
+  if (btnDownload) btnDownload.style.display = '';
+}
+
+// ── RENDER PREVIEW ─────────────────────────────────────────────
+function renderPreview(lines) {
+  const previewBody = document.getElementById('previewBody');
+  if (!previewBody) return;
+
+  // Update stats bar
+  const statsBar = document.getElementById('statsBar');
+  if (statsBar) statsBar.style.display = 'flex';
+
+  const totalCentsForStat = transactions.reduce((s, tx) => s + Math.round(parseFloat(tx.amount) * 100), 0);
+  const totalAmt = (totalCentsForStat / 100).toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fileSizeBytes = lines.join('\r\n').length;
+
+  const statRecords = document.getElementById('statRecords');
+  const statAmount  = document.getElementById('statAmount');
+  const statSize    = document.getElementById('statSize');
+  if (statRecords) statRecords.textContent = lines.length;
+  if (statAmount)  statAmount.textContent  = '$' + totalAmt;
+  if (statSize)    statSize.textContent    = fileSizeBytes + ' B';
+
+  let html = '';
+
+  lines.forEach((line, idx) => {
+    const recType = line[0];
+    const charCount = line.length;
+
+    if (recType === 'A') {
+      // A record — gold/amber
+      const fields = [
+        { name: 'Record Type',    value: line.substring(0, 1) },
+        { name: 'Reserved',       value: line.substring(1, 2) },
+        { name: 'Origin Bank',    value: line.substring(2, 4) },
+        { name: 'Origin Branch',  value: line.substring(4, 8) },
+        { name: 'Reserved (12)',  value: line.substring(8, 20) },
+        { name: 'Processing Date',value: line.substring(20, 28) },
+        { name: 'Customer Name',  value: line.substring(28, 138) },
+        { name: 'Reserved (10)',  value: line.substring(138, 148) },
+        { name: 'DE User ID',     value: line.substring(148, 154) },
+        { name: 'Reserved (6)',   value: line.substring(154, 160) },
+      ];
+
+      html += `<div class="record-card">
+        <div class="record-card-header">
+          <span class="record-tag tag-a">A RECORD</span>
+          <span class="record-seq">Header — ${charCount} chars</span>
+        </div>
+        <div class="record-fields">
+          ${fields.map(f => `<div class="field-item">
+            <div class="field-label">${escHtml(f.name)}</div>
+            <div class="field-value">${escHtml(f.value.trim() || '(blank)')}</div>
+          </div>`).join('')}
+        </div>
+        <div class="record-raw">${escHtml(line)}</div>
+      </div>`;
+
+    } else if (recType === 'D') {
+      // D record — blue
+      const isBalancing = (idx === lines.length - 2); // second-to-last line
+      const label = isBalancing ? 'Balancing D Record' : `D Record #${idx}`;
+      const fields = [
+        { name: 'Record Type',         value: line.substring(0, 1) },
+        { name: 'Reserved',            value: line.substring(1, 2) },
+        { name: 'This Party Bank',     value: line.substring(2, 4) },
+        { name: 'Branch',              value: line.substring(4, 8) },
+        { name: 'Account',             value: line.substring(8, 16) },
+        { name: 'Suffix',              value: line.substring(16, 20) },
+        { name: 'Tx Code',             value: line.substring(20, 22) },
+        { name: 'Amount (cents)',       value: line.substring(22, 37), isAmount: true },
+        { name: 'Input Source',        value: line.substring(37, 39) },
+        { name: 'Reserved (2)',        value: line.substring(39, 41) },
+        { name: 'Orig Bank',           value: line.substring(41, 43) },
+        { name: 'Orig Branch',         value: line.substring(43, 47) },
+        { name: 'Batch No',            value: line.substring(47, 51) },
+        { name: 'This Party Name',     value: line.substring(51, 71) },
+        { name: 'Reference',           value: line.substring(71, 83) },
+        { name: 'Particulars',         value: line.substring(83, 95) },
+        { name: 'Analysis',            value: line.substring(95, 107) },
+        { name: 'Other Party Name',    value: line.substring(107, 127) },
+        { name: 'Reserved (1)',        value: line.substring(127, 128) },
+        { name: 'Other Party Bank',    value: line.substring(128, 130) },
+        { name: 'Branch',              value: line.substring(130, 134) },
+        { name: 'Account',             value: line.substring(134, 142) },
+        { name: 'Suffix',              value: line.substring(142, 146) },
+        { name: 'Reserved (1)',        value: line.substring(146, 147) },
+        { name: 'Due Date',            value: line.substring(147, 155) },
+        { name: 'Reserved (5)',        value: line.substring(155, 160) },
+      ];
+
+      html += `<div class="record-card">
+        <div class="record-card-header">
+          <span class="record-tag tag-d">D RECORD</span>
+          <span class="record-seq">${escHtml(label)} — ${charCount} chars</span>
+        </div>
+        <div class="record-fields">
+          ${fields.map(f => `<div class="field-item">
+            <div class="field-label">${escHtml(f.name)}</div>
+            <div class="field-value${f.isAmount ? ' is-amount' : ''}">${escHtml(f.value.trim() || '(blank)')}</div>
+          </div>`).join('')}
+        </div>
+        <div class="record-raw">${escHtml(line)}</div>
+      </div>`;
+
+    } else if (recType === 'T') {
+      // T record — green
+      const fields = [
+        { name: 'Record Type',     value: line.substring(0, 1) },
+        { name: 'D Record Count',  value: line.substring(1, 7) },
+        { name: 'Hash Total',      value: line.substring(7, 14) },
+        { name: 'Reserved (6)',    value: line.substring(14, 20) },
+        { name: 'Total Credits',   value: line.substring(20, 35), isAmount: true },
+        { name: 'Total Debits',    value: line.substring(35, 50), isAmount: true },
+        { name: 'Net Value',       value: line.substring(50, 65) },
+        { name: 'Sign',            value: line.substring(65, 66) },
+        { name: 'Grand Total',     value: line.substring(66, 81), isAmount: true },
+        { name: 'Reserved (15)',   value: line.substring(81, 96) },
+        { name: 'Sign',            value: line.substring(96, 97) },
+        { name: 'Reserved (63)',   value: line.substring(97, 160) },
+      ];
+
+      html += `<div class="record-card" style="border-color:#86efac">
+        <div class="record-card-header" style="background:var(--green-bg)">
+          <span class="record-tag" style="background:var(--green-bg);color:var(--green);border:1px solid #86efac">T RECORD</span>
+          <span class="record-seq">Trailer — ${charCount} chars</span>
+        </div>
+        <div class="record-fields">
+          ${fields.map(f => `<div class="field-item">
+            <div class="field-label">${escHtml(f.name)}</div>
+            <div class="field-value${f.isAmount ? ' is-amount' : ''}">${escHtml(f.value.trim() || '(blank)')}</div>
+          </div>`).join('')}
+        </div>
+        <div class="record-raw">${escHtml(line)}</div>
+      </div>`;
+    }
+  });
+
+  previewBody.innerHTML = html;
+}
+
+// ── DOWNLOAD FILE ───────────────────────────────────────────────
+function downloadFile() {
+  if (!generatedContent) return;
+
+  const dateInput = document.getElementById('processingDate').value;
+  let ddmmyyyy = '';
+  if (dateInput) {
+    const parts = dateInput.split('-');
+    if (parts.length === 3) {
+      ddmmyyyy = parts[2] + parts[1] + parts[0]; // DDMMYYYY
+    }
+  }
+  const filename = 'NZ_BACHO_' + (ddmmyyyy || 'UNKNOWN') + '.txt';
+
+  triggerDownload(generatedContent, filename, 'text/plain');
+}
+
 // ── INIT ───────────────────────────────────────────────────────
 (function init() {
   // Default processing date to today
