@@ -410,7 +410,7 @@
     </div>
   </div>
   <div class="header-right">
-    <span class="badge badge-amber" id="modeBadge">DIRECT CREDITS</span>
+    <span class="badge badge-amber" id="modeBadge">DC</span>
     <span class="badge badge-gray">160 CHAR / RECORD</span>
   </div>
 </header>
@@ -744,6 +744,9 @@ function setTxCode(code, btn) {
       b.classList.toggle('active', b.textContent.includes(`(${code})`));
     });
   }
+  // Both DC sub-types (52 and 50) keep the badge as "DC"
+  const badge = document.getElementById('modeBadge');
+  if (badge) badge.textContent = 'DC';
   refreshPreview();
 }
 
@@ -768,7 +771,7 @@ function setMode(mode, btn) {
   if (paymentTypeRow) paymentTypeRow.style.display = isDd ? 'none' : '';
 
   // Update header badge
-  document.getElementById('modeBadge').textContent = isDd ? 'DIRECT DEBITS' : 'DIRECT CREDITS';
+  document.getElementById('modeBadge').textContent = isDd ? 'DD' : 'DC';
 
   // Update transaction table column header
   const thPayer = document.getElementById('thPayer');
@@ -779,9 +782,8 @@ function setMode(mode, btn) {
     currentTxCode = '00';
   } else {
     // Use setTxCode to restore state AND re-sync #txCodeTabs button highlighting.
-    // Pass null as btn since there's no button click to highlight here;
-    // setTxCode calls refreshPreview() but we call it again below — acceptable
-    // because refreshPreview() is cheap (just clears generated state).
+    // Pass null as btn since there's no button click to highlight here.
+    // setTxCode also re-sets the modeBadge to "DC" which is correct.
     setTxCode('52', null);
   }
 
@@ -792,7 +794,16 @@ function setMode(mode, btn) {
     else if (!isDd && (batchEl.value === '' || batchEl.value === '0601')) batchEl.value = '0000';
   }
 
-  refreshPreview();
+  // Clear loaded transactions so they don't carry over to the wrong mode
+  clearTransactions();
+
+  // Reset the preview panel
+  const previewBody = document.getElementById('previewBody');
+  if (previewBody) {
+    previewBody.innerHTML = '<div class="preview-placeholder"><div class="icon">📋</div><p>Fill in Steps 1–3, then click <strong>&#x26A1; Generate &amp; Preview</strong> to see the formatted bank file here.</p></div>';
+  }
+  const statsBar = document.getElementById('statsBar');
+  if (statsBar) statsBar.style.display = 'none';
 }
 
 // ── DOWNLOAD TEMPLATE ──────────────────────────────────────────
