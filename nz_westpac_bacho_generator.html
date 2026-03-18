@@ -582,6 +582,7 @@ function loadTransactionsFromRows(rows, filename) {
 // ── TABLE HELPERS ──────────────────────────────────────────────
 function refreshTxTable() {
   const body = document.getElementById('txTableBody');
+  if (!body) return;
   if (!transactions.length) {
     body.innerHTML = '<tr><td colspan="7" class="tx-empty">No transactions — import a CSV file above</td></tr>';
     return;
@@ -616,7 +617,8 @@ function clearTransactions() {
   transactions = [];
   refreshTxTable();
   refreshPreview();
-  document.getElementById('statusCsv').className = 'alert';
+  const sc = document.getElementById('statusCsv');
+  if (sc) sc.className = 'alert';
 }
 
 // ── UI HELPERS ─────────────────────────────────────────────────
@@ -693,6 +695,7 @@ function downloadTemplate() {
 // ── STATUS DISPLAY ─────────────────────────────────────────────
 function showStatus(id, type, msg) {
   const el = document.getElementById(id);
+  if (!el) return;
   const map = { error:'alert-error', warn:'alert-warn', success:'alert-success', info:'alert-info' };
   el.className = `alert ${map[type] || 'alert-info'} show`;
   el.textContent = msg;
