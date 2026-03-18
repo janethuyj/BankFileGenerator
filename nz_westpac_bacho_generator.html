@@ -432,7 +432,47 @@
         <div class="step-title">File Setup &amp; Header</div>
       </div>
       <div class="step-body">
-        <!-- Form fields added in Task 2 -->
+
+  <div class="form-row">
+    <label>Transaction Mode</label>
+    <div class="tab-group" id="modeTabs">
+      <button class="tab-btn active" onclick="setMode('DC', this)">Direct Credits</button>
+      <button class="tab-btn" onclick="setMode('DD', this)">Direct Debits</button>
+    </div>
+  </div>
+
+  <div id="paymentTypeRow">
+    <div class="form-row">
+      <label>Payment Type</label>
+      <div class="tab-group" id="txCodeTabs">
+        <button class="tab-btn active" onclick="setTxCode('52', this)">Payroll (52)</button>
+        <button class="tab-btn" onclick="setTxCode('50', this)">General Payment (50)</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <label for="processingDate">Processing Date</label>
+    <input type="date" id="processingDate" onchange="refreshPreview()">
+  </div>
+
+  <div class="form-row">
+    <label for="customerName">Customer Name <span>(optional)</span></label>
+    <input type="text" id="customerName" maxlength="110" placeholder="e.g. ACME CORPORATION LTD" oninput="refreshPreview()">
+    <div class="form-help">Max 110 chars — your company name</div>
+  </div>
+
+  <div class="form-row">
+    <label for="originBranch">Origin Branch <span>(Bank 03 — Westpac)</span></label>
+    <input type="text" id="originBranch" maxlength="4" placeholder="e.g. 0123" oninput="refreshPreview()">
+  </div>
+
+  <div class="form-row">
+    <label for="deUserId">DE User ID</label>
+    <input type="text" id="deUserId" maxlength="6" placeholder="e.g. ABC123" oninput="refreshPreview()">
+    <div class="form-help">6-character identifier allocated by Westpac NZ</div>
+  </div>
+
       </div>
     </div>
 
@@ -443,7 +483,38 @@
         <div class="step-title" id="step2Title">Your Account</div>
       </div>
       <div class="step-body">
-        <!-- Form fields added in Task 2 -->
+
+  <div class="form-row">
+    <label for="tradingName" id="tradingNameLabel">Your Trading Name</label>
+    <input type="text" id="tradingName" maxlength="20" placeholder="e.g. ACME LTD" oninput="refreshPreview()">
+    <div class="form-help">Appears on each transaction record (max 20 chars)</div>
+  </div>
+
+  <div class="account-grid">
+    <div class="form-row">
+      <label for="yourBank">Bank</label>
+      <input type="text" id="yourBank" maxlength="2" placeholder="03" oninput="refreshPreview()">
+    </div>
+    <div class="form-row">
+      <label for="yourBranch">Branch</label>
+      <input type="text" id="yourBranch" maxlength="4" placeholder="0123" oninput="refreshPreview()">
+    </div>
+    <div class="form-row">
+      <label for="yourAccount">Account</label>
+      <input type="text" id="yourAccount" maxlength="8" placeholder="00123456" oninput="refreshPreview()">
+    </div>
+    <div class="form-row">
+      <label for="yourSuffix">Suffix</label>
+      <input type="text" id="yourSuffix" maxlength="4" placeholder="0000" oninput="refreshPreview()">
+    </div>
+  </div>
+
+  <div class="form-row">
+    <label for="batchNumber">Batch Number</label>
+    <input type="text" id="batchNumber" maxlength="4" placeholder="0000" oninput="refreshPreview()">
+    <div class="form-help">Default: 0000 (DC) / 0601 (DD) — advise your Westpac contact if unsure</div>
+  </div>
+
       </div>
     </div>
 
@@ -454,7 +525,45 @@
         <div class="step-title">Transactions</div>
       </div>
       <div class="step-body">
-        <!-- Form fields added in Task 2 -->
+
+  <div id="panelCsv">
+    <div class="drop-zone" id="dropCsv"
+         onclick="document.getElementById('fileCsv').click()"
+         ondragover="dzDragOver(event,'dropCsv')"
+         ondragleave="dzDragLeave('dropCsv')"
+         ondrop="dzDrop(event,'dropCsv',handleCsvFile)">
+      <div class="dz-icon">📄</div>
+      <div class="dz-text">Drop a CSV file here, or click to browse</div>
+      <div class="dz-hint">Accepts .csv — for Excel files, save as CSV first</div>
+    </div>
+    <input type="file" id="fileCsv" class="hidden-file" accept=".csv,.xlsx,.xls" onchange="handleCsvFileInput(this)">
+
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="downloadTemplate()">⬇ Download CSV Template</button>
+      <button class="btn btn-ghost" onclick="clearTransactions()">✕ Clear All</button>
+    </div>
+    <div class="alert" id="statusCsv"></div>
+  </div>
+
+  <div class="tx-table-wrap">
+    <table class="tx-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Payee Name</th>
+          <th>Bank-Br-Acc-Sfx</th>
+          <th>Amount</th>
+          <th>Particulars</th>
+          <th id="thPayer">Payer</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="txTableBody">
+        <tr><td colspan="7" class="tx-empty">No transactions — import a CSV file above</td></tr>
+      </tbody>
+    </table>
+  </div>
+
       </div>
     </div>
 
@@ -465,7 +574,9 @@
         <div class="step-title">Validate &amp; Download</div>
       </div>
       <div class="step-body">
-        <!-- Form fields added in Task 2 -->
+  <div class="alert" id="validationAlert"></div>
+  <button class="btn btn-primary btn-full btn-lg" onclick="validateAndGenerate()">⚡ Generate &amp; Preview</button>
+  <button class="btn btn-secondary btn-full btn-lg" id="btnDownload" style="margin-top:8px;display:none" onclick="downloadFile()">⬇ Download .txt</button>
       </div>
     </div>
 
@@ -659,10 +770,6 @@ function setMode(mode, btn) {
   // Update header badge
   document.getElementById('modeBadge').textContent = isDd ? 'DIRECT DEBITS' : 'DIRECT CREDITS';
 
-  // Update Step 2 card title
-  const step2Title = document.getElementById('step2Title');
-  if (step2Title) step2Title.textContent = isDd ? 'Default Creditor Account' : 'Your Account';
-
   // Update Payer Name label
   const payerNameLabel = document.getElementById('payerNameLabel');
   if (payerNameLabel) payerNameLabel.textContent = isDd ? 'Creditor Name' : 'Payer Name';
@@ -680,6 +787,13 @@ function setMode(mode, btn) {
     // setTxCode calls refreshPreview() but we call it again below — acceptable
     // because refreshPreview() is cheap (just clears generated state).
     setTxCode('52', null);
+  }
+
+  // Update batch number default when mode switches
+  const batchEl = document.getElementById('batchNumber');
+  if (batchEl) {
+    if (isDd && (batchEl.value === '' || batchEl.value === '0000')) batchEl.value = '0601';
+    else if (!isDd && (batchEl.value === '' || batchEl.value === '0601')) batchEl.value = '0000';
   }
 
   refreshPreview();
@@ -778,6 +892,8 @@ function refreshPreview() {
   const dd    = String(today.getDate()).padStart(2, '0');
   const processingDate = document.getElementById('processingDate');
   if (processingDate) processingDate.value = `${yyyy}-${mm}-${dd}`;
+  const bn = document.getElementById('batchNumber');
+  if (bn) bn.value = '0000';
   // Initialise mode toggle state from a single source
   setMode('DC');
 })();
