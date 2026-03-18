@@ -882,7 +882,9 @@ function refreshPreview() {
 // ── DATE HELPER ────────────────────────────────────────────────
 function toBachoDate(dateInput) {
   if (!dateInput) return '        '; // 8 spaces if missing
-  const [y, m, d] = dateInput.split('-');
+  const parts = dateInput.split('-');
+  if (parts.length !== 3 || !parts[0] || !parts[1] || !parts[2]) return '        ';
+  const [y, m, d] = parts;
   return d + m + y; // DDMMCCYY e.g. '18032026'
 }
 
@@ -968,6 +970,8 @@ function buildBalancingRecord(totalCents) {
   const dateRaw   = document.getElementById('processingDate').value;
 
   // For balancing record: This Party = your account, Other Party = your account (same in both roles)
+  // DC balancing: tx code '00' (general debit, offsets credits)
+  // DD balancing: tx code '50' per Westpac NZ BACHO spec s4.3 Balancing Credit detail record
   const txCode   = currentMode === 'DD' ? '50' : '00';
   const inputSrc = currentMode === 'DD' ? 'DD' : 'DC';
 
