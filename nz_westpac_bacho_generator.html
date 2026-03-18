@@ -771,7 +771,8 @@ function setMode(mode, btn) {
   if (paymentTypeRow) paymentTypeRow.style.display = isDd ? 'none' : '';
 
   // Update header badge
-  document.getElementById('modeBadge').textContent = isDd ? 'DD' : 'DC';
+  const badge = document.getElementById('modeBadge');
+  if (badge) badge.textContent = isDd ? 'DD' : 'DC';
 
   // Update transaction table column header
   const thPayer = document.getElementById('thPayer');
