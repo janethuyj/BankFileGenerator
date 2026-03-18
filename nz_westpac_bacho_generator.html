@@ -934,9 +934,17 @@ function buildDetailRecord(tx) {
   const yourSfx    = document.getElementById('yourSuffix').value.trim();
   const dateRaw    = document.getElementById('processingDate').value;
 
-  const txCode  = currentMode === 'DD' ? '00' : (tx.tx_code || currentTxCode);
+  const txCode  = currentMode === 'DD' ? '00' : currentTxCode;
   const inputSrc = currentMode === 'DD' ? 'DD' : 'DC';
   const cents   = Math.round(parseFloat(tx.amount || 0) * 100);
+
+  // Apply per-row payer override if payer_bank, payer_branch, payer_account all present
+  const hasPayerOverride = tx.payer_bank && tx.payer_branch && tx.payer_account;
+  const opBank    = hasPayerOverride ? tx.payer_bank    : yourBk;
+  const opBranch  = hasPayerOverride ? tx.payer_branch  : yourBr;
+  const opAccount = hasPayerOverride ? tx.payer_account : yourAc;
+  const opSuffix  = hasPayerOverride ? (tx.payer_suffix || yourSfx) : yourSfx;
+  const opName    = hasPayerOverride ? (tx.payer_name   || tradingNm) : tradingNm;
 
   const rec =
     'D' +                          // 1
@@ -956,12 +964,12 @@ function buildDetailRecord(tx) {
     padL(tx.reference     || '', 12) + // 12
     padL(tx.particulars   || '', 12) + // 12
     padL(tx.analysis_code || '', 12) + // 12
-    padL(tradingNm, 20) +          // 20  Other Party name
+    padL(opName, 20) +             // 20  Other Party name
     ' ' +                          // 1   reserved space
-    padR(yourBk, 2) +              // 2
-    padR(yourBr, 4) +              // 4
-    padR(yourAc, 8) +              // 8
-    padR(yourSfx, 4) +             // 4
+    padR(opBank, 2) +              // 2
+    padR(opBranch, 4) +            // 4
+    padR(opAccount, 8) +           // 8
+    padR(opSuffix, 4) +            // 4
     ' ' +                          // 1   reserved space
     toBachoDate(dateRaw) +         // 8   due date
     '00000';                       // 5   reserved zeros
@@ -1091,6 +1099,12 @@ function validateAll() {
     errors.push('Your account number is required.');
   } else if (!/^\d+$/.test(yourAccount)) {
     errors.push('Your account number must be numeric.');
+  }
+
+  const sfxEl = document.getElementById('yourSuffix');
+  const sfxVal = sfxEl ? sfxEl.value.trim() : '';
+  if (sfxVal && !/^\d+$/.test(sfxVal)) {
+    warnings.push('Your account suffix should be numeric.');
   }
 
   if (!transactions.length) {
