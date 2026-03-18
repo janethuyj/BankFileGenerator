@@ -668,8 +668,8 @@ function buildDetailRecord(tx, seq) {
   const payeeAccount = padR(tx.payee_account || '', 8);
   const payeeSuffix  = padR(tx.payee_suffix  || '', 4);
 
-  const txCode = tx.tx_code || currentTxCode;
-  const mts    = 'DC';
+  const txCode = currentMode === 'DD' ? '00' : (tx.tx_code || currentTxCode);
+  const mts    = currentMode === 'DD' ? 'DD' : 'DC';
 
   const cents   = Math.round(parseFloat(tx.amount || 0) * 100);
   const amtStr  = padR(String(cents), 15);
