@@ -1152,14 +1152,8 @@ function validateAndGenerate() {
   const accounts = allDRecords.map(r => r.substring(8, 16));
 
   // Determine total credits and debits (in cents)
-  let totalCredits, totalDebits;
-  if (currentMode === 'DC') {
-    totalCredits = totalCents;   // sum of transaction credits
-    totalDebits  = totalCents;   // balancing debit
-  } else {
-    totalDebits  = totalCents;   // sum of transaction debits
-    totalCredits = totalCents;   // balancing credit
-  }
+  const totalCredits = totalCents;
+  const totalDebits  = totalCents;
 
   const dCount = allDRecords.length;
 
@@ -1242,9 +1236,9 @@ function renderPreview(lines) {
         { name: 'Record Type',         value: line.substring(0, 1) },
         { name: 'Reserved',            value: line.substring(1, 2) },
         { name: 'This Party Bank',     value: line.substring(2, 4) },
-        { name: 'Branch',              value: line.substring(4, 8) },
-        { name: 'Account',             value: line.substring(8, 16) },
-        { name: 'Suffix',              value: line.substring(16, 20) },
+        { name: 'This Party Branch',   value: line.substring(4, 8) },
+        { name: 'This Party Account',  value: line.substring(8, 16) },
+        { name: 'This Party Suffix',   value: line.substring(16, 20) },
         { name: 'Tx Code',             value: line.substring(20, 22) },
         { name: 'Amount (cents)',       value: line.substring(22, 37), isAmount: true },
         { name: 'Input Source',        value: line.substring(37, 39) },
@@ -1259,9 +1253,9 @@ function renderPreview(lines) {
         { name: 'Other Party Name',    value: line.substring(107, 127) },
         { name: 'Reserved (1)',        value: line.substring(127, 128) },
         { name: 'Other Party Bank',    value: line.substring(128, 130) },
-        { name: 'Branch',              value: line.substring(130, 134) },
-        { name: 'Account',             value: line.substring(134, 142) },
-        { name: 'Suffix',              value: line.substring(142, 146) },
+        { name: 'Other Party Branch',  value: line.substring(130, 134) },
+        { name: 'Other Party Account', value: line.substring(134, 142) },
+        { name: 'Other Party Suffix',  value: line.substring(142, 146) },
         { name: 'Reserved (1)',        value: line.substring(146, 147) },
         { name: 'Due Date',            value: line.substring(147, 155) },
         { name: 'Reserved (5)',        value: line.substring(155, 160) },
@@ -1291,10 +1285,10 @@ function renderPreview(lines) {
         { name: 'Total Credits',   value: line.substring(20, 35), isAmount: true },
         { name: 'Total Debits',    value: line.substring(35, 50), isAmount: true },
         { name: 'Net Value',       value: line.substring(50, 65) },
-        { name: 'Sign',            value: line.substring(65, 66) },
+        { name: 'Net Value Sign',  value: line.substring(65, 66) },
         { name: 'Grand Total',     value: line.substring(66, 81), isAmount: true },
         { name: 'Reserved (15)',   value: line.substring(81, 96) },
-        { name: 'Sign',            value: line.substring(96, 97) },
+        { name: 'Grand Total Sign', value: line.substring(96, 97) },
         { name: 'Reserved (63)',   value: line.substring(97, 160) },
       ];
 
