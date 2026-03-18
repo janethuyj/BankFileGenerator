@@ -733,10 +733,11 @@ function validateAll() {
   if (!branch) errors.push('Origin branch is required');
   else if (!/^\d+$/.test(branch)) errors.push('Origin branch must be numeric (up to 4 digits)');
 
-  if (!pBank)  errors.push('Default payer bank is required');
-  if (!pBr)    errors.push('Default payer branch is required');
-  if (!pAc)    errors.push('Default payer account is required');
-  if (!pNm)    errors.push('Default payer name is required');
+  const acctLabel = currentMode === 'DD' ? 'creditor' : 'payer';
+  if (!pBank)  errors.push(`Default ${acctLabel} bank is required`);
+  if (!pBr)    errors.push(`Default ${acctLabel} branch is required`);
+  if (!pAc)    errors.push(`Default ${acctLabel} account is required`);
+  if (!pNm)    errors.push(`Default ${acctLabel} name is required`);
 
   if (!transactions.length) errors.push('No transactions — import a CSV or bank file');
 
@@ -1043,7 +1044,14 @@ function setMode(mode, btn) {
 
   // Update mode toggle active state
   document.querySelectorAll('#modeTabs .tab-btn').forEach(b => b.classList.remove('active'));
-  if (btn) btn.classList.add('active');
+  if (btn) {
+    btn.classList.add('active');
+  } else {
+    const label = mode === 'DC' ? 'Direct Credits' : 'Direct Debits';
+    document.querySelectorAll('#modeTabs .tab-btn').forEach(b => {
+      if (b.textContent.trim() === label) b.classList.add('active');
+    });
+  }
 
   const isDd = mode === 'DD';
 
