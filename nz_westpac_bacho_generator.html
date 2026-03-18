@@ -879,6 +879,154 @@ function refreshPreview() {
   }
 }
 
+// ── DATE HELPER ────────────────────────────────────────────────
+function toBachoDate(dateInput) {
+  if (!dateInput) return '        '; // 8 spaces if missing
+  const [y, m, d] = dateInput.split('-');
+  return d + m + y; // DDMMCCYY e.g. '18032026'
+}
+
+// ── A RECORD ───────────────────────────────────────────────────
+function buildHeaderRecord() {
+  const branch   = document.getElementById('originBranch').value.trim();
+  const custName = document.getElementById('customerName').value.trim();
+  const deUserId = document.getElementById('deUserId').value.trim();
+  const dateRaw  = document.getElementById('processingDate').value;
+
+  const rec =
+    'A' +                  // 1
+    '0' +                  // 1
+    '03' +                 // 2
+    padR(branch, 4) +      // 4
+    '000000000000' +       // 12  (reserved zeros)
+    toBachoDate(dateRaw) + // 8
+    padL(custName, 110) +  // 110
+    padBlank(10) +         // 10  (reserved spaces)
+    padL(deUserId, 6) +    // 6
+    '000000';              // 6   (reserved zeros)
+  // total = 1+1+2+4+12+8+110+10+6+6 = 160
+
+  return rec.substring(0, 160);
+}
+
+// ── D RECORD ───────────────────────────────────────────────────
+function buildDetailRecord(tx) {
+  const branch     = document.getElementById('originBranch').value.trim();
+  const batchRaw   = document.getElementById('batchNumber').value.trim() || (currentMode === 'DD' ? '0601' : '0000');
+  const tradingNm  = document.getElementById('tradingName').value.trim();
+  const yourBk     = document.getElementById('yourBank').value.trim();
+  const yourBr     = document.getElementById('yourBranch').value.trim();
+  const yourAc     = document.getElementById('yourAccount').value.trim();
+  const yourSfx    = document.getElementById('yourSuffix').value.trim();
+  const dateRaw    = document.getElementById('processingDate').value;
+
+  const txCode  = currentMode === 'DD' ? '00' : (tx.tx_code || currentTxCode);
+  const inputSrc = currentMode === 'DD' ? 'DD' : 'DC';
+  const cents   = Math.round(parseFloat(tx.amount || 0) * 100);
+
+  const rec =
+    'D' +                          // 1
+    '0' +                          // 1
+    padR(tx.payee_bank    || '', 2) + // 2
+    padR(tx.payee_branch  || '', 4) + // 4
+    padR(tx.payee_account || '', 8) + // 8  ← hash field
+    padR(tx.payee_suffix  || '', 4) + // 4
+    padR(txCode, 2) +              // 2
+    padR(String(cents), 15) +      // 15
+    inputSrc +                     // 2
+    '  ' +                         // 2  reserved spaces
+    '03' +                         // 2  originating bank
+    padR(branch, 4) +              // 4  originating branch
+    padR(batchRaw, 4) +            // 4  batch number
+    padL(tx.payee_name    || '', 20) + // 20
+    padL(tx.reference     || '', 12) + // 12
+    padL(tx.particulars   || '', 12) + // 12
+    padL(tx.analysis_code || '', 12) + // 12
+    padL(tradingNm, 20) +          // 20  Other Party name
+    ' ' +                          // 1   reserved space
+    padR(yourBk, 2) +              // 2
+    padR(yourBr, 4) +              // 4
+    padR(yourAc, 8) +              // 8
+    padR(yourSfx, 4) +             // 4
+    ' ' +                          // 1   reserved space
+    toBachoDate(dateRaw) +         // 8   due date
+    '00000';                       // 5   reserved zeros
+  // total = 1+1+2+4+8+4+2+15+2+2+2+4+4+20+12+12+12+20+1+2+4+8+4+1+8+5 = 160
+
+  return rec.substring(0, 160);
+}
+
+// ── BALANCING D RECORD ─────────────────────────────────────────
+function buildBalancingRecord(totalCents) {
+  const branch    = document.getElementById('originBranch').value.trim();
+  const batchRaw  = document.getElementById('batchNumber').value.trim() || (currentMode === 'DD' ? '0601' : '0000');
+  const tradingNm = document.getElementById('tradingName').value.trim();
+  const yourBk    = document.getElementById('yourBank').value.trim();
+  const yourBr    = document.getElementById('yourBranch').value.trim();
+  const yourAc    = document.getElementById('yourAccount').value.trim();
+  const yourSfx   = document.getElementById('yourSuffix').value.trim();
+  const dateRaw   = document.getElementById('processingDate').value;
+
+  // For balancing record: This Party = your account, Other Party = your account (same in both roles)
+  const txCode   = currentMode === 'DD' ? '50' : '00';
+  const inputSrc = currentMode === 'DD' ? 'DD' : 'DC';
+
+  const rec =
+    'D' +
+    '0' +
+    padR(yourBk, 2) +              // This Party bank = your bank
+    padR(yourBr, 4) +              // This Party branch = your branch
+    padR(yourAc, 8) +              // This Party account = your account ← included in hash total
+    padR(yourSfx, 4) +             // This Party suffix = your suffix
+    padR(txCode, 2) +
+    padR(String(totalCents), 15) +
+    inputSrc +
+    '  ' +
+    '03' +
+    padR(branch, 4) +
+    padR(batchRaw, 4) +
+    padL(tradingNm, 20) +          // This Party name = your trading name
+    padBlank(12) +                 // reference (blank)
+    padBlank(12) +                 // particulars (blank)
+    padBlank(12) +                 // analysis (blank)
+    padL(tradingNm, 20) +          // Other Party name = your trading name
+    ' ' +
+    padR(yourBk, 2) +
+    padR(yourBr, 4) +
+    padR(yourAc, 8) +
+    padR(yourSfx, 4) +
+    ' ' +
+    toBachoDate(dateRaw) +
+    '00000';
+
+  return rec.substring(0, 160);
+}
+
+// ── T RECORD ───────────────────────────────────────────────────
+function buildTrailerRecord(dCount, accounts, totalCredits, totalDebits) {
+  const hashSum = accounts.reduce((s, acc) => s + (parseInt(acc, 10) || 0), 0);
+  const hashStr = padR(String(hashSum % 10000000), 7);
+
+  const grandTotal = totalCredits + totalDebits;
+
+  const rec =
+    'T' +
+    padR(String(dCount), 6) +
+    hashStr +
+    padBlank(6) +                        // 6 spaces reserved
+    padR(String(totalCredits), 15) +
+    padR(String(totalDebits), 15) +
+    padR('0', 15) +                      // net value = 0
+    'C' +
+    padR(String(grandTotal), 15) +
+    '000000000000000' +                  // 15 zeros reserved
+    'C' +
+    padBlank(63);                        // 63 spaces reserved
+  // 1+6+7+6+15+15+15+1+15+15+1+63 = 160
+
+  return rec.substring(0, 160);
+}
+
 // ── INIT ───────────────────────────────────────────────────────
 (function init() {
   // Default processing date to today
