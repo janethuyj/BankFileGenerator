@@ -770,10 +770,6 @@ function setMode(mode, btn) {
   // Update header badge
   document.getElementById('modeBadge').textContent = isDd ? 'DIRECT DEBITS' : 'DIRECT CREDITS';
 
-  // Update Payer Name label
-  const payerNameLabel = document.getElementById('payerNameLabel');
-  if (payerNameLabel) payerNameLabel.textContent = isDd ? 'Creditor Name' : 'Payer Name';
-
   // Update transaction table column header
   const thPayer = document.getElementById('thPayer');
   if (thPayer) thPayer.textContent = isDd ? 'Creditor' : 'Payer';
