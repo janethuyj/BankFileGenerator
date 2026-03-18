@@ -9,10 +9,12 @@ No installation, no server, no dependencies — open the HTML file in any modern
 ## Features
 
 - Generate fixed-length 180-character Direct Entry files (NZ Westpac format)
+- **Direct Credits** (transaction codes `52` Payroll and `50` General Payment) and **Direct Debits** (transaction code `00`)
+- Top-level transaction mode toggle — switch between Direct Credits and Direct Debits
 - Import transactions from CSV
 - Live file preview with labelled field breakdown per record
 - Download the generated `.txt` file ready for bank upload
-- Per-row payer account override support
+- Per-row payer account override support (Direct Credits mode)
 - Validation with clear error messages before generation
 
 ---
@@ -20,8 +22,8 @@ No installation, no server, no dependencies — open the HTML file in any modern
 ## Usage
 
 1. Open `nz_westpac_generator.html` in a browser
-2. **Step 1** — Set the processing date, file description, company name, and your Westpac origin branch
-3. **Step 2** — Enter your default payer bank account details
+2. **Step 1** — Select **Direct Credits** or **Direct Debits**, set the processing date, file description, company name, and your Westpac origin branch
+3. **Step 2** — Enter your default payer (Direct Credits) or creditor (Direct Debits) bank account details
 4. **Step 3** — Import a CSV file containing payee transactions
 5. **Step 4** — Click **⚡ Generate & Preview**, review the output, then **⬇ Download .txt**
 
@@ -66,9 +68,11 @@ Generates Westpac NZ Direct Entry format (August 2011 spec):
 
 ## Scope
 
-**Phase 1 (current):** Direct Credits only — transaction codes `52` (Payroll) and `50` (General Payment)
+**Implemented:**
+- Direct Credits — transaction codes `52` (Payroll) and `50` (General Payment), MTS source `DC`
+- Direct Debits — transaction code `00`, MTS source `DD`
 
-Deferred to future phases: Direct Debits, XLSX import, row-level editing, multiple header records.
+**Deferred to future phases:** XLSX import, row-level editing, multiple header records.
 
 ---
 
