@@ -410,7 +410,7 @@
     </div>
   </div>
   <div class="header-right">
-    <span class="badge badge-amber">DIRECT CREDITS</span>
+    <span class="badge badge-amber" id="modeBadge">DIRECT CREDITS</span>
     <span class="badge badge-gray">180 CHAR / RECORD</span>
   </div>
 </header>
@@ -432,6 +432,16 @@
         <div class="step-title">File Setup &amp; Header</div>
       </div>
       <div class="step-body">
+
+        <div class="form-row">
+          <label>Transaction Mode</label>
+          <div class="tab-group" id="modeTabs">
+            <button class="tab-btn active" onclick="setMode('DC', this)">Direct Credits</button>
+            <button class="tab-btn" onclick="setMode('DD', this)">Direct Debits</button>
+          </div>
+        </div>
+
+        <div id="paymentTypeRow">
         <div class="form-row">
           <label>Payment Type</label>
           <div class="tab-group" id="txCodeTabs">
@@ -439,6 +449,7 @@
             <button class="tab-btn" onclick="setTxCode('50', this)">General Payment (50)</button>
           </div>
         </div>
+        </div><!-- /paymentTypeRow -->
 
         <div class="form-row">
           <label for="processingDate">Processing Date</label>
@@ -467,11 +478,11 @@
     <div class="step-card">
       <div class="step-header">
         <div class="step-num">2</div>
-        <div class="step-title">Default Payer Account</div>
+        <div class="step-title" id="step2Title">Default Payer Account</div>
       </div>
       <div class="step-body">
         <div class="form-row">
-          <label for="payerName">Payer Name</label>
+          <label for="payerName" id="payerNameLabel">Payer Name</label>
           <input type="text" id="payerName" maxlength="20" placeholder="e.g. ACME LTD" oninput="refreshPreview()">
         </div>
         <div class="account-grid">
@@ -534,7 +545,7 @@
                 <th>Bank-Br-Acc-Sfx</th>
                 <th>Amount</th>
                 <th>Particulars</th>
-                <th>Payer</th>
+                <th id="thPayer">Payer</th>
                 <th></th>
               </tr>
             </thead>
