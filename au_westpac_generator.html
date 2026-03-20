@@ -785,7 +785,7 @@ function refreshTxTable() {
     const bsbAcct = `${tx.payee_bsb || ''}  ${tx.payee_account || ''}`.trim();
     const amt  = parseFloat(tx.amount || 0).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const txCode = tx.transaction_code || currentDefaultTxCode;
-    const isDebit = parseInt(txCode, 10) === 13;
+    const isDebit = !isCredit(txCode);
     const codeBadge = isDebit
       ? `<span class="badge-custom">${escHtml(txCode)} debit</span>`
       : `<span class="badge-default">${escHtml(txCode)} credit</span>`;
@@ -945,6 +945,13 @@ function validateAll() {
     if (!tx.payee_account) errors.push(`Row ${n}: Payee account is missing`);
     const amt = parseFloat(tx.amount);
     if (isNaN(amt) || amt <= 0) errors.push(`Row ${n}: Amount must be a positive number`);
+    else if (Math.round(amt * 100) > 9999999999) errors.push(`Row ${n}: Amount exceeds maximum ($99,999,999.99)`);
+    if (tx.transaction_code) {
+      const validCodes = ['13','50','51','52','53','54','55','56','57'];
+      if (!validCodes.includes(String(tx.transaction_code).trim())) {
+        warnings.push(`Row ${n}: Transaction code '${escHtml(String(tx.transaction_code))}' is not a standard AU Direct Entry code`);
+      }
+    }
   });
 
   // Warnings
