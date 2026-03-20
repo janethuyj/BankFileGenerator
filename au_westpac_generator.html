@@ -912,6 +912,210 @@ function buildTrailerRecord(count, totalCredits, totalDebits) {
   return rec.substring(0, 120);
 }
 
+// ── VALIDATE / GENERATE / PREVIEW / DOWNLOAD ──────────────────
+
+function validateAll() {
+  const errors   = [];
+  const warnings = [];
+
+  const date    = document.getElementById('processingDate').value;
+  const user    = document.getElementById('userName').value.trim();
+  const apca    = document.getElementById('apcaUserId').value.trim();
+  const desc    = document.getElementById('fileDescription').value.trim();
+  const bsbRaw  = document.getElementById('yourBsb').value.trim();
+  const acct    = document.getElementById('yourAccount').value.trim();
+  const remit   = document.getElementById('remitterName').value.trim();
+
+  if (!date)  errors.push('Processing date is required');
+  if (!user)  errors.push('Name of user is required');
+  if (!apca)  errors.push('APCA User ID is required');
+  else if (!/^\d+$/.test(apca)) errors.push('APCA User ID must be numeric');
+  if (!desc)  errors.push('File description is required');
+  if (!bsbRaw) errors.push('Your BSB is required');
+  else if (!formatBsb(bsbRaw)) errors.push('Your BSB must be in format DDD-DDD (e.g. 032-000)');
+  if (!acct)  errors.push('Your account is required');
+  if (!remit) errors.push('Remitter name is required');
+  if (!transactions.length) errors.push('No transactions — import a CSV file');
+
+  // Per-row validation
+  transactions.forEach((tx, i) => {
+    const n = i + 1;
+    if (!tx.payee_name) errors.push(`Row ${n}: Payee name is missing`);
+    if (!tx.payee_bsb || !formatBsb(tx.payee_bsb)) errors.push(`Row ${n}: Payee BSB is missing or invalid (expected DDD-DDD)`);
+    if (!tx.payee_account) errors.push(`Row ${n}: Payee account is missing`);
+    const amt = parseFloat(tx.amount);
+    if (isNaN(amt) || amt <= 0) errors.push(`Row ${n}: Amount must be a positive number`);
+  });
+
+  // Warnings
+  const reelRaw = document.getElementById('reelSequence').value.trim();
+  if (!reelRaw || !/^\d+$/.test(reelRaw)) warnings.push('Reel sequence is empty or non-numeric — defaulting to 01');
+  const instRaw = document.getElementById('financialInstitution').value.trim();
+  if (!instRaw) warnings.push('Financial institution is empty — defaulting to WBC');
+
+  return { errors, warnings };
+}
+
+function validateAndGenerate() {
+  const { errors, warnings } = validateAll();
+  const alertEl = document.getElementById('validationAlert');
+  const btnDl   = document.getElementById('btnDownload');
+
+  if (errors.length) {
+    alertEl.className = 'alert alert-error show';
+    alertEl.innerHTML = '<strong>Please fix these errors:</strong><ul>' +
+      errors.map(e => `<li>${escHtml(e)}</li>`).join('') + '</ul>';
+    if (btnDl) btnDl.style.display = 'none';
+    generatedContent = '';
+    return;
+  }
+
+  // Build records
+  const headerRec  = buildHeaderRecord();
+  const detailRecs = transactions.map(tx => buildDetailRecord(tx));
+
+  // Compute credit/debit totals
+  let totalCredits = 0;
+  let totalDebits  = 0;
+  transactions.forEach(tx => {
+    const txCode = tx.transaction_code || currentDefaultTxCode;
+    const cents  = Math.round(parseFloat(tx.amount || 0) * 100);
+    if (isCredit(txCode)) totalCredits += cents;
+    else                  totalDebits  += cents;
+  });
+
+  const trailerRec = buildTrailerRecord(detailRecs.length, totalCredits, totalDebits);
+
+  const allLines = [headerRec, ...detailRecs, trailerRec];
+  generatedContent = allLines.join('\r\n') + '\r\n'; // trailing CRLF after last record
+
+  // Show warnings or success
+  if (warnings.length) {
+    alertEl.className = 'alert alert-warn show';
+    alertEl.innerHTML = '<strong>Warnings:</strong><ul>' +
+      warnings.map(w => `<li>${escHtml(w)}</li>`).join('') + '</ul>';
+  } else {
+    alertEl.className = 'alert alert-success show';
+    alertEl.textContent = `✓ Generated — ${detailRecs.length} transaction${detailRecs.length !== 1 ? 's' : ''}`;
+  }
+
+  if (btnDl) btnDl.style.display = '';
+  renderPreview(allLines, totalCredits, totalDebits);
+}
+
+function renderPreview(lines, totalCredits, totalDebits) {
+  // Update stats bar
+  const statsBar = document.getElementById('statsBar');
+  if (statsBar) statsBar.style.display = '';
+
+  const statRecords = document.getElementById('statRecords');
+  const statCredits = document.getElementById('statCredits');
+  const statDebits  = document.getElementById('statDebits');
+  const statSize    = document.getElementById('statSize');
+
+  if (statRecords) statRecords.textContent = lines.length;
+  if (statCredits) statCredits.textContent = '$' + (totalCredits / 100).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (statDebits)  statDebits.textContent  = '$' + (totalDebits  / 100).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (statSize)    statSize.textContent    = generatedContent.length + ' bytes';
+
+  // Build card HTML
+  const previewBody = document.getElementById('previewBody');
+  if (!previewBody) return;
+
+  let detailCount = 0;
+  const cards = lines.map(line => {
+    const type = line[0];
+    let borderColor, bgColor, textColor, tagBorderColor, tagLabel, seqLabel, fields;
+
+    if (type === '0') {
+      borderColor   = '#fcd34d';
+      bgColor       = 'var(--gold-bg)';
+      textColor     = 'var(--gold)';
+      tagBorderColor = '#fcd34d';
+      tagLabel      = '0 RECORD';
+      seqLabel      = 'Header';
+      fields = [
+        { name: 'Record Type',      value: line.substring(0, 1) },
+        { name: 'Reel Sequence',    value: line.substring(18, 20) },
+        { name: 'Financial Inst',   value: line.substring(20, 23) },
+        { name: 'Name of User',     value: line.substring(30, 56) },
+        { name: 'APCA User ID',     value: line.substring(56, 62) },
+        { name: 'File Description', value: line.substring(62, 74) },
+        { name: 'Processing Date',  value: line.substring(74, 80) },
+      ];
+    } else if (type === '1') {
+      detailCount++;
+      borderColor   = '#93c5fd';
+      bgColor       = 'var(--blue-bg)';
+      textColor     = 'var(--blue)';
+      tagBorderColor = '#93c5fd';
+      tagLabel      = '1 RECORD';
+      seqLabel      = `Detail #${detailCount}`;
+      fields = [
+        { name: 'Record Type',         value: line.substring(0, 1) },
+        { name: 'Payee BSB',           value: line.substring(1, 8) },
+        { name: 'Payee Account',       value: line.substring(8, 17) },
+        { name: 'Indicator',           value: line.substring(17, 18) },
+        { name: 'Transaction Code',    value: line.substring(18, 20) },
+        { name: 'Amount',              value: line.substring(20, 30), isAmount: true },
+        { name: 'Payee Name',          value: line.substring(30, 62) },
+        { name: 'Lodgement Reference', value: line.substring(62, 80) },
+        { name: 'Trace BSB',           value: line.substring(80, 87) },
+        { name: 'Trace Account',       value: line.substring(87, 96) },
+        { name: 'Remitter Name',       value: line.substring(96, 112) },
+        { name: 'Withholding Tax',     value: line.substring(112, 120) },
+      ];
+    } else if (type === '7') {
+      borderColor   = '#86efac';
+      bgColor       = 'var(--green-bg)';
+      textColor     = 'var(--green)';
+      tagBorderColor = '#86efac';
+      tagLabel      = '7 RECORD';
+      seqLabel      = 'Trailer';
+      fields = [
+        { name: 'Record Type',   value: line.substring(0, 1) },
+        { name: 'BSB Filler',    value: line.substring(1, 8) },
+        { name: 'Net Total',     value: line.substring(20, 30), isAmount: true },
+        { name: 'Credit Total',  value: line.substring(30, 40), isAmount: true },
+        { name: 'Debit Total',   value: line.substring(40, 50), isAmount: true },
+        { name: 'Record Count',  value: line.substring(74, 80) },
+      ];
+    } else {
+      return '';
+    }
+
+    const fieldItemsHtml = fields.map(f => {
+      const amtClass = f.isAmount ? ' is-amount' : '';
+      return `<div class="field-item">` +
+        `<div class="field-label">${escHtml(f.name)}</div>` +
+        `<div class="field-value${amtClass}">${escHtml(f.value)}</div>` +
+        `</div>`;
+    }).join('');
+
+    return `<div class="record-card" style="border-color:${borderColor}">` +
+      `<div class="record-card-header" style="background:${bgColor}">` +
+        `<span class="record-tag" style="background:${bgColor};color:${textColor};border:1px solid ${tagBorderColor}">${escHtml(tagLabel)}</span>` +
+        `<span class="record-seq">${escHtml(seqLabel)} — ${line.length} chars</span>` +
+      `</div>` +
+      `<div class="record-fields">${fieldItemsHtml}</div>` +
+      `<div class="record-raw">${escHtml(line)}</div>` +
+      `</div>`;
+  });
+
+  previewBody.innerHTML = cards.join('');
+}
+
+function downloadFile() {
+  if (!generatedContent) return;
+  const dateInput = document.getElementById('processingDate').value;
+  let ddmmyy = 'UNKNOWN';
+  if (dateInput) {
+    const parts = dateInput.split('-');
+    if (parts.length === 3) ddmmyy = parts[2] + parts[1] + parts[0].substring(2); // DDMMYY
+  }
+  triggerDownload(generatedContent, `AU_DE_${ddmmyy}.txt`, 'text/plain');
+}
+
 // ── INIT ───────────────────────────────────────────────────────
 function init() {
   const sel = document.getElementById('defaultTxCode');
