@@ -387,6 +387,23 @@
     /* ── DIVIDER ── */
     hr.form-divider { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
 
+    /* ── FORM HELPERS ── */
+    .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-2); margin-bottom: 4px; margin-top: 10px; }
+    .form-label:first-child { margin-top: 0; }
+    .form-input { width: 100%; height: 34px; border: 1px solid var(--border-dark); border-radius: var(--radius); padding: 0 10px; font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text); background: var(--surface); outline: none; transition: border-color 0.15s; }
+    .form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
+    select.form-input { height: 34px; }
+    .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+    .form-hint { font-size: 12px; color: var(--text-3); margin-bottom: 8px; }
+    .btn-sm { height: 28px; padding: 0 10px; font-size: 12px; }
+    .req { color: var(--error-text); }
+    .tx-actions { margin-top: 8px; display: flex; gap: 8px; }
+
+    /* ── DROP ZONE INNER ── */
+    .drop-icon { font-size: 24px; margin-bottom: 6px; }
+    .drop-text { font-size: 12px; color: var(--text-2); line-height: 1.5; }
+    .drop-link { color: var(--accent); cursor: pointer; text-decoration: underline; }
+
     /* hidden file inputs */
     .hidden-file { display: none; }
 
@@ -432,7 +449,41 @@
         <div class="step-title">File Setup</div>
       </div>
       <div class="step-body">
-        <!-- body placeholder only -->
+        <!-- Processing Date -->
+        <label class="form-label">Processing Date <span class="req">*</span></label>
+        <input type="date" id="processingDate" class="form-input" oninput="refreshPreview()">
+
+        <!-- Two-column row: Reel Sequence + Financial Institution -->
+        <div class="form-row-2">
+          <div>
+            <label class="form-label">Reel Sequence</label>
+            <input type="text" id="reelSequence" class="form-input" maxlength="2" placeholder="01" oninput="refreshPreview()">
+          </div>
+          <div>
+            <label class="form-label">Financial Institution</label>
+            <input type="text" id="financialInstitution" class="form-input" maxlength="3" placeholder="WBC" oninput="refreshPreview()">
+          </div>
+        </div>
+
+        <!-- Name of User -->
+        <label class="form-label">Name of User <span class="req">*</span></label>
+        <input type="text" id="userName" class="form-input" maxlength="26" placeholder="ACME CORP" oninput="refreshPreview()">
+
+        <!-- APCA User ID -->
+        <label class="form-label">APCA User ID <span class="req">*</span></label>
+        <input type="text" id="apcaUserId" class="form-input" maxlength="6" placeholder="000000" oninput="refreshPreview()">
+
+        <!-- File Description -->
+        <label class="form-label">File Description <span class="req">*</span></label>
+        <input type="text" id="fileDescription" class="form-input" maxlength="12" placeholder="PAYROLL" oninput="refreshPreview()">
+
+        <!-- Default Transaction Code -->
+        <label class="form-label">Default Transaction Code <span class="req">*</span></label>
+        <select id="defaultTxCode" class="form-input" onchange="onDefaultTxCodeChange()">
+          <option value="50">50 — General Credit</option>
+          <option value="53">53 — Pay / Salary</option>
+          <option value="13">13 — Debit</option>
+        </select>
       </div>
     </div>
 
@@ -443,7 +494,19 @@
         <div class="step-title">Your Account</div>
       </div>
       <div class="step-body">
-        <!-- body placeholder only -->
+        <p class="form-hint">Your BSB and account appear as the Trace Record on every detail line.</p>
+
+        <!-- Your BSB -->
+        <label class="form-label">Your BSB <span class="req">*</span></label>
+        <input type="text" id="yourBsb" class="form-input" maxlength="7" placeholder="032-000" oninput="refreshPreview()">
+
+        <!-- Your Account -->
+        <label class="form-label">Your Account <span class="req">*</span></label>
+        <input type="text" id="yourAccount" class="form-input" maxlength="9" placeholder="123456789" oninput="refreshPreview()">
+
+        <!-- Remitter Name -->
+        <label class="form-label">Remitter Name <span class="req">*</span></label>
+        <input type="text" id="remitterName" class="form-input" maxlength="16" placeholder="ACME CORP" oninput="refreshPreview()">
       </div>
     </div>
 
@@ -454,7 +517,40 @@
         <div class="step-title">Transactions</div>
       </div>
       <div class="step-body">
-        <!-- body placeholder only -->
+        <!-- Drag-drop zone -->
+        <div class="drop-zone" id="dropCsv"
+          ondragover="dzDragOver(event,'dropCsv')"
+          ondragleave="dzDragLeave('dropCsv')"
+          ondrop="dzDrop(event,'dropCsv',handleCsvFile)">
+          <div class="drop-icon">📂</div>
+          <div class="drop-text">Drag &amp; drop CSV here, or <label for="fileCsv" class="drop-link">browse</label></div>
+          <input type="file" id="fileCsv" accept=".csv" style="display:none" onchange="handleCsvFileInput(this)">
+          <button class="btn btn-ghost btn-sm" onclick="downloadTemplate()" type="button">⬇ Download template</button>
+        </div>
+
+        <div id="statusCsv" class="alert"></div>
+
+        <!-- Transaction table -->
+        <div class="tx-table-wrap">
+          <table class="tx-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Payee Name</th>
+                <th>BSB / Account</th>
+                <th>Amount</th>
+                <th>TX Code</th>
+                <th>Reference</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="txTableBody"></tbody>
+          </table>
+        </div>
+
+        <div class="tx-actions">
+          <button class="btn btn-ghost btn-sm" onclick="clearTransactions()" type="button">Clear all</button>
+        </div>
       </div>
     </div>
 
@@ -465,7 +561,15 @@
         <div class="step-title">Validate &amp; Download</div>
       </div>
       <div class="step-body">
-        <!-- body placeholder only -->
+        <div id="validationAlert" class="alert"></div>
+
+        <button class="btn btn-primary btn-full btn-lg" onclick="validateAndGenerate()" type="button">
+          ⚡ Generate &amp; Preview
+        </button>
+
+        <button class="btn btn-secondary btn-full" id="btnDownload" onclick="downloadFile()" type="button" style="display:none; margin-top:8px">
+          ⬇ Download AU_DE_DDMMYY.txt
+        </button>
       </div>
     </div>
 
@@ -592,7 +696,9 @@ function removeTransaction(i) {
 function clearTransactions() {
   transactions = [];
   refreshTxTable();
-  refreshPreview();
+  generatedContent = '';
+  const btn = document.getElementById('btnDownload');
+  if (btn) btn.style.display = 'none';
   const sc = document.getElementById('statusCsv');
   if (sc) sc.className = 'alert';
 }
@@ -675,13 +781,48 @@ function refreshTxTable() {
     body.innerHTML = '<tr><td colspan="7" class="tx-empty">No transactions — import a CSV file above</td></tr>';
     return;
   }
-  // Full implementation in Task 2
-  body.innerHTML = '<tr><td colspan="7" class="tx-empty">Transactions loaded — preview in Task 2</td></tr>';
+  body.innerHTML = transactions.map((tx, i) => {
+    const bsbAcct = `${tx.payee_bsb || ''}  ${tx.payee_account || ''}`.trim();
+    const amt  = parseFloat(tx.amount || 0).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const txCode = tx.transaction_code || currentDefaultTxCode;
+    const isDebit = parseInt(txCode, 10) === 13;
+    const codeBadge = isDebit
+      ? `<span class="badge-custom">${escHtml(txCode)} debit</span>`
+      : `<span class="badge-default">${escHtml(txCode)} credit</span>`;
+    return `<tr>
+      <td>${i + 1}</td>
+      <td>${escHtml(tx.payee_name || '')}</td>
+      <td class="tx-acct">${escHtml(bsbAcct)}</td>
+      <td class="tx-amount">$${escHtml(amt)}</td>
+      <td>${codeBadge}</td>
+      <td>${escHtml(tx.lodgement_reference || '—')}</td>
+      <td><button class="btn-del" title="Remove" onclick="removeTransaction(${i})">&#x2715;</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── DOWNLOAD TEMPLATE ──────────────────────────────────────────
+function downloadTemplate() {
+  const header = 'payee_name,payee_bsb,payee_account,amount,transaction_code,lodgement_reference,remitter_name,withholding_tax,indicator';
+  const example = 'Jane Smith,032-000,123456789,1500.00,,,,,';
+  triggerDownload(header + '\r\n' + example + '\r\n', 'AU_DE_template.csv', 'text/csv');
+}
+
+// ── DEFAULT TX CODE CHANGE ─────────────────────────────────────
+function onDefaultTxCodeChange() {
+  const sel = document.getElementById('defaultTxCode');
+  if (sel) currentDefaultTxCode = sel.value;
+  refreshTxTable(); // re-render TX code badges
 }
 
 // ── INIT ───────────────────────────────────────────────────────
 function init() {
-  // initialise defaults — full wiring in Task 2
+  const sel = document.getElementById('defaultTxCode');
+  if (sel) currentDefaultTxCode = sel.value; // '50' matches first option
+  const ri = document.getElementById('reelSequence');
+  if (ri && !ri.value) ri.value = '01';
+  const fi = document.getElementById('financialInstitution');
+  if (fi && !fi.value) fi.value = 'WBC';
 }
 document.addEventListener('DOMContentLoaded', init);
 </script>
