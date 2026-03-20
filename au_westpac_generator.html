@@ -483,7 +483,9 @@
           <option value="50">50 — General Credit</option>
           <option value="53">53 — Pay / Salary</option>
           <option value="13">13 — Debit</option>
+          <option value="mixed">Mixed — use per-row code from CSV</option>
         </select>
+        <div class="form-hint" id="mixedHint" style="display:none">Each CSV row must have a <code>transaction_code</code> column value. Rows without one will fail validation.</div>
       </div>
     </div>
 
@@ -784,11 +786,19 @@ function refreshTxTable() {
   body.innerHTML = transactions.map((tx, i) => {
     const bsbAcct = `${tx.payee_bsb || ''}  ${tx.payee_account || ''}`.trim();
     const amt  = parseFloat(tx.amount || 0).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const txCode = tx.transaction_code || currentDefaultTxCode;
-    const isDebit = !isCredit(txCode);
-    const codeBadge = isDebit
-      ? `<span class="badge-custom">${escHtml(txCode)} debit</span>`
-      : `<span class="badge-default">${escHtml(txCode)} credit</span>`;
+    const isMixed = currentDefaultTxCode === 'mixed';
+    const effectiveTxCode = tx.transaction_code ? String(tx.transaction_code).trim() : (isMixed ? '' : currentDefaultTxCode);
+    const hasOverride = !isMixed && tx.transaction_code && String(tx.transaction_code).trim() !== currentDefaultTxCode;
+    let codeBadge;
+    if (isMixed && !tx.transaction_code) {
+      codeBadge = `<span style="background:#fef2f2;color:#991b1b;font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;font-family:'DM Mono',monospace">missing!</span>`;
+    } else {
+      const isDebit = !isCredit(effectiveTxCode);
+      const overrideSuffix = hasOverride ? ' <span title="Overrides default" style="opacity:0.6">↑</span>' : '';
+      codeBadge = isDebit
+        ? `<span class="badge-custom">${escHtml(effectiveTxCode)} debit${overrideSuffix}</span>`
+        : `<span class="badge-default">${escHtml(effectiveTxCode)} credit${overrideSuffix}</span>`;
+    }
     return `<tr>
       <td>${i + 1}</td>
       <td>${escHtml(tx.payee_name || '')}</td>
@@ -812,6 +822,8 @@ function downloadTemplate() {
 function onDefaultTxCodeChange() {
   const sel = document.getElementById('defaultTxCode');
   if (sel) currentDefaultTxCode = sel.value;
+  const hint = document.getElementById('mixedHint');
+  if (hint) hint.style.display = currentDefaultTxCode === 'mixed' ? '' : 'none';
   refreshTxTable(); // re-render TX code badges
 }
 
@@ -871,7 +883,8 @@ function buildDetailRecord(tx) {
   const payeeBsb  = formatBsb(tx.payee_bsb) || '       '; // 7 chars
   const payeeAcct = String(tx.payee_account || '').substring(0, 9).padStart(9, ' ');
   const indicator = (tx.indicator || ' ').substring(0, 1);
-  const txCode    = (tx.transaction_code || currentDefaultTxCode).substring(0, 2);
+  const defaultCode = currentDefaultTxCode === 'mixed' ? '50' : currentDefaultTxCode;
+  const txCode    = (tx.transaction_code ? String(tx.transaction_code).trim() : defaultCode).substring(0, 2);
   const cents     = Math.round(parseFloat(tx.amount || 0) * 100);
   const taxCents  = Math.round(parseFloat(tx.withholding_tax || 0) * 100);
   const effRemitter = tx.remitter_name ? tx.remitter_name.substring(0, 16) : remitter;
@@ -946,10 +959,20 @@ function validateAll() {
     const amt = parseFloat(tx.amount);
     if (isNaN(amt) || amt <= 0) errors.push(`Row ${n}: Amount must be a positive number`);
     else if (Math.round(amt * 100) > 9999999999) errors.push(`Row ${n}: Amount exceeds maximum ($99,999,999.99)`);
-    if (tx.transaction_code) {
-      const validCodes = ['13','50','51','52','53','54','55','56','57'];
-      if (!validCodes.includes(String(tx.transaction_code).trim())) {
+    const validCodes = ['13','50','51','52','53','54','55','56','57'];
+    if (currentDefaultTxCode === 'mixed') {
+      // Mixed mode: per-row code is mandatory
+      if (!tx.transaction_code) {
+        errors.push(`Row ${n}: Transaction code is required in CSV when mode is "Mixed"`);
+      } else if (!validCodes.includes(String(tx.transaction_code).trim())) {
         warnings.push(`Row ${n}: Transaction code '${escHtml(String(tx.transaction_code))}' is not a standard AU Direct Entry code`);
+      }
+    } else if (tx.transaction_code) {
+      const rowCode = String(tx.transaction_code).trim();
+      if (!validCodes.includes(rowCode)) {
+        warnings.push(`Row ${n}: Transaction code '${escHtml(rowCode)}' is not a standard AU Direct Entry code`);
+      } else if (rowCode !== currentDefaultTxCode) {
+        warnings.push(`Row ${n}: CSV transaction code '${escHtml(rowCode)}' overrides the default '${currentDefaultTxCode}' — the CSV value will be used`);
       }
     }
   });
@@ -1131,6 +1154,9 @@ function init() {
   if (ri && !ri.value) ri.value = '01';
   const fi = document.getElementById('financialInstitution');
   if (fi && !fi.value) fi.value = 'WBC';
+  // ensure mixed hint reflects initial state
+  const hint = document.getElementById('mixedHint');
+  if (hint) hint.style.display = currentDefaultTxCode === 'mixed' ? '' : 'none';
 }
 document.addEventListener('DOMContentLoaded', init);
 </script>
