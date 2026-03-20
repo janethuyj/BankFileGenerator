@@ -570,11 +570,6 @@ function parseCsv(text) {
     const obj  = {};
     headers.forEach((h, idx) => { obj[h] = (vals[idx] || '').trim(); });
 
-    // Per-row payer override only if bank+branch+account all present
-    if (!(obj.payer_bank && obj.payer_branch && obj.payer_account)) {
-      delete obj.payer_bank; delete obj.payer_branch;
-      delete obj.payer_account; delete obj.payer_suffix; delete obj.payer_name;
-    }
     rows.push(obj);
   }
   return rows;
