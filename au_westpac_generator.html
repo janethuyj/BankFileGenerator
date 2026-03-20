@@ -815,6 +815,103 @@ function onDefaultTxCodeChange() {
   refreshTxTable(); // re-render TX code badges
 }
 
+// ── RECORD BUILDERS ────────────────────────────────────────────
+
+function toAuDate(dateInput) {
+  if (!dateInput) return '      '; // 6 spaces if missing
+  const parts = dateInput.split('-');
+  if (parts.length !== 3 || !parts[0] || !parts[1] || !parts[2]) return '      ';
+  const [y, m, d] = parts;
+  return d + m + y.substring(2); // DDMMYY (2-digit year)
+}
+
+function formatBsb(raw) {
+  if (!raw) return null;
+  const digits = String(raw).replace(/-/g, '').trim();
+  if (digits.length !== 6 || !/^\d{6}$/.test(digits)) return null;
+  return digits.substring(0, 3) + '-' + digits.substring(3); // e.g. '032-000'
+}
+
+function isCredit(txCode) {
+  const n = parseInt(txCode, 10);
+  return n >= 50 && n <= 57;
+}
+
+function buildHeaderRecord() {
+  const reelRaw = document.getElementById('reelSequence').value.trim();
+  const reel = /^\d+$/.test(reelRaw) ? reelRaw : '01';
+  const instRaw = document.getElementById('financialInstitution').value.trim();
+  const inst = instRaw || 'WBC';
+  const userName = document.getElementById('userName').value.trim();
+  const apcaId   = document.getElementById('apcaUserId').value.trim();
+  const fileDesc = document.getElementById('fileDescription').value.trim();
+  const dateStr  = toAuDate(document.getElementById('processingDate').value);
+
+  const rec =
+    '0' +                         // 1   record type
+    padBlank(17) +                // 17  blank
+    padR(reel, 2) +               // 2   reel sequence (right-justified, zero-filled)
+    padL(inst, 3) +               // 3   financial institution
+    padBlank(7) +                 // 7   blank
+    padL(userName, 26) +          // 26  name of user
+    padR(apcaId, 6) +             // 6   APCA user ID (right-justified, zero-filled)
+    padL(fileDesc, 12) +          // 12  file description
+    dateStr +                     // 6   processing date DDMMYY
+    padBlank(40);                 // 40  blank
+  // total = 1+17+2+3+7+26+6+12+6+40 = 120
+
+  return rec.substring(0, 120);
+}
+
+function buildDetailRecord(tx) {
+  const traceBsb  = formatBsb(document.getElementById('yourBsb').value.trim()) || '       ';
+  const traceAcct = document.getElementById('yourAccount').value.trim();
+  const remitter  = document.getElementById('remitterName').value.trim();
+
+  const payeeBsb  = formatBsb(tx.payee_bsb) || '       '; // 7 chars
+  const payeeAcct = String(tx.payee_account || '').substring(0, 9).padStart(9, ' ');
+  const indicator = (tx.indicator || ' ').substring(0, 1);
+  const txCode    = (tx.transaction_code || currentDefaultTxCode).substring(0, 2);
+  const cents     = Math.round(parseFloat(tx.amount || 0) * 100);
+  const taxCents  = Math.round(parseFloat(tx.withholding_tax || 0) * 100);
+  const effRemitter = tx.remitter_name ? tx.remitter_name.substring(0, 16) : remitter;
+
+  const rec =
+    '1' +                              // 1
+    payeeBsb +                         // 7
+    payeeAcct +                        // 9
+    indicator +                        // 1
+    padR(txCode, 2) +                  // 2  tx code, right-justified with leading zero if needed
+    padR(String(cents), 10) +          // 10 amount in cents
+    padL(tx.payee_name || '', 32) +    // 32 title of account
+    padL(tx.lodgement_reference || '', 18) + // 18 lodgement reference
+    traceBsb +                         // 7
+    String(traceAcct).substring(0, 9).padStart(9, ' ') + // 9 trace account
+    padL(effRemitter, 16) +            // 16 remitter name
+    padR(String(taxCents), 8);         // 8  withholding tax
+  // total = 1+7+9+1+2+10+32+18+7+9+16+8 = 120
+
+  return rec.substring(0, 120);
+}
+
+function buildTrailerRecord(count, totalCredits, totalDebits) {
+  const net = Math.abs(totalCredits - totalDebits);
+
+  const rec =
+    '7' +                         // 1   record type
+    '999-999' +                   // 7   BSB filler
+    padBlank(12) +                // 12  blank
+    padR(String(net), 10) +       // 10  net total (|credits - debits|)
+    padR(String(totalCredits), 10) + // 10 credit total
+    padR(String(totalDebits), 10) +  // 10 debit total
+    padBlank(24) +                // 24  blank
+    padR(String(count), 6) +      // 6   count of detail records
+    padBlank(40);                 // 40  blank
+  // total = 1+7+12+10+10+10+24+6+40 = 120
+
+  return rec.substring(0, 120);
+}
+
 // ── INIT ───────────────────────────────────────────────────────
 function init() {
   const sel = document.getElementById('defaultTxCode');
